@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+  <title>カードゲーム「DOBON」 Ver.1.0"></title>
+
+  <!-- PyScript（固定版） -->
+  <link rel="stylesheet" href="https://pyscript.net/releases/2026.3.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2026.3.1/core.js"></script>
+
+  <!-- cards.js -->
+  <script defer src="cards.js"></script>
+
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 18px; background: #fff; }
+    h1 { margin: 0 0 10px 0; font-size: 22px; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 520px 320px 320px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    /* 左：プレーヤー（CPU3人）の箱 */
+    .cpu-box {
+      border: 1px solid #999;
+      border-radius: 10px;
+      padding: 6px;
+      margin-bottom: 12px;
+    }
+    .cpu-title { font-weight: 800; margin-bottom: 10px; }
+    
+    /* CPUカード表示エリア */
+    .mini-row{
+    display: flex;
+    gap: 10px;
+    flex-wrap: nowrap;      /* ★横一列で重ねる */
+    position: relative;     /* ★stack の土台 */
+    min-height: 90px;       /* ★重ねても高さ確保（必要なら調整） */
+    overflow: visible;        /* ★はみ出たら隠す（リミッター） */
+    }
+    /* CPUの裏カード（通常表示） */
+    .cpu-card{
+    width: 50px;
+    height: auto;
+    border-radius: 8px;
+    background: #fff;
+    user-select: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,.12);
+    }
+    /* ★CPUの重ね表示 */
+    .cpu-card.stack{
+    position: absolute;
+    box-shadow: none;       /* 重なりの濁り軽減 */
+    }
+    
+    /* 中央：場札 */
+    .center { text-align: center; }
+    .label { font-size: 22px; font-weight: 900; margin-bottom: 10px; }
+
+    .field-frame {
+      width: 220px;
+      height: 300px;
+      margin: 0 auto;
+      border-radius: 26px;
+      background: #2f5f78;
+      padding: 14px;
+      box-sizing: border-box;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow: 0 4px 10px rgba(0,0,0,.15);
+    }
+    .field-frame img { width: 180px; height: auto; border-radius: 14px; background:#fff; }
+
+    /* 右：山札 */
+    .right { text-align:center; }
+    .deck-wrap { margin-top: 6px; display:flex; justify-content:center; }
+    .deck-card {
+      width: 180px; height: auto; cursor: pointer;
+      border-radius: 14px;
+      box-shadow: 0 4px 10px rgba(0,0,0,.15);
+      transition: transform .12s ease;
+      user-select: none;
+    }
+    .deck-card:hover { transform: translateY(-6px); }
+    .deck-card.disabled { opacity: .45; cursor: not-allowed; transform: none !important; }
+
+    /* 下：あなたの手札 */
+    .hand-frame{
+      border: 1px solid #999;
+      border-radius: 10px;
+      padding: 38px;
+      position: relative;          /* ★重ね表示の土台 */
+      min-height: 260px;           /* ★カードを重ねても高さ確保 */
+      overflow: auto;              /* ★はみ出たらスクロール（リミッター） */
+      overflow-y:hidden;
+      touch-action: pan-x;
+      -webkit-overflow-scrolling: touch;
+      background: #fff;
+    }
+
+    /* 手札カード（通常でも重ねでも共通） */
+  .hand-card{
+    width: 140px;
+    height: auto;
+    border-radius: 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform .12s ease, box-shadow .12s ease;
+    box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    background: #fff;
+  }
+
+  /* ★重ね表示モードのときは absolute で配置する（Python側で設定） */
+  .hand-card.stack{
+    position: absolute;
+    box-shadow: none;
+  }
+
+/* ★ホバーで“少し持ち上がる”＋最前面に */
+  .hand-card:hover{
+    transform: translateY(-20px);
+    box-shadow: 0 12px 18px rgba(0,0,0,.18);
+    z-index: 999 !important;
+  }
+
+/* 出せないカードの見た目（今回は「取る」優先なので残すだけ） */
+.hand-card.disabled{
+  opacity: 1;
+  outline: 3px solid rgba(0,0,0,.12);
+}
+
+/* 山札：ホバー＋クリック */
+.deck-card{
+  width: 180px; height: auto; cursor: pointer;
+  border-radius: 14px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.15);
+  transition: transform .12s ease;
+  user-select: none;
+}
+.deck-card:hover{ transform: translateY(-6px); }
+.deck-card.disabled{ opacity:.45; cursor:not-allowed; transform:none !important; }
+
+.turn-active{
+  background: #e9ffe9;     /* 薄グリーン */
+  border-color: #66bb66;
+}
+
+    /* メッセージ */
+    #msg {
+      margin-top: 10px;
+      font-size: 16px;
+      white-space: pre-line;
+    }
+    .ok { color: #156c2f; font-weight: 800; }
+    .ng { color: #b00020; font-weight: 800; }
+
+    .toolbar { margin-top: 10px; display:flex; gap: 10px; flex-wrap: wrap; }
+    button { font-size: 16px; padding: 8px 14px; }
+
+    @media (max-width: 1180px) {
+      .layout { grid-template-columns: 1fr; }
+      .field-frame { width: 220px; height: 300px; }
+      .field-frame img { width: 180px; }
+      .deck-card { width: 180px; }
+      .hand-card { width: 120px; }
+    }
+
+/* ===== iPad横向き専用レイアウト ===== */
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+
+  /* iPadでは少し詰める（ただしスクロールは殺さない） */
+  body { padding: 10px; }
+
+  /* ===== 1段目：CPU・場・山 を1列（3カラム） ===== */
+  .layout{
+    display: grid;
+    grid-template-columns: 320px 300px 400px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* ===== CPU：縦3行 ===== */
+  .layout > div:nth-child(1){
+    display: flex;
+    flex-direction: column;   /* ★縦に積む */
+    gap: 10px;
+  }
+
+  .cpu-box{ padding: 6px; margin-bottom: 0; }
+
+  .cpu-title{
+    font-size: 14px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .mini-row{ justify-content: center; }
+  .cpu-card{ width: 56px; height:auto; }
+  .cpu-card.stack{ box-shadow: none; }
+
+  /* ===== 場札 ===== */
+  .field-frame{
+    width: 200px;
+    height: 280px;
+    margin: 0 auto;
+  }
+  .field-frame img{ width: 180px; }
+
+  /* ===== 山札 ===== */
+  .deck-card{ width: 160px; }
+
+  /* ===== 手札：横スワイプ専用（ページスクロールは生かす） ===== */
+  .hand-frame{
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
+
+  /* iPadはhoverを使わない（selectedだけ浮かす） */
+  .hand-card:hover{ transform: none; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+  .hand-card.selected{
+    transform: translateY(-22px);
+    outline: 4px solid rgba(0,120,255,.35);
+    z-index: 999 !important;
+  }
+
+  /* 重ね表示時は影を消して濁りを防ぐ */
+  .hand-card.stack{ box-shadow: none; }
+}
+
+
+/* ====== マウス環境だけ hover を効かせる ====== */
+@media (hover: hover) and (pointer: fine) {
+  .hand-card:hover{
+    transform: translateY(-22px);
+    box-shadow: 0 12px 18px rgba(0,0,0,.18);
+    z-index: 999 !important;
+  }
+}
+
+#dobon-btn.ready{
+  animation: pulse 1.2s ease-in-out infinite;
+  outline: 4px solid rgba(255, 59, 48, .35);
+}
+
+  .dobon-alert {
+  background: #ff69b4 !important;
+  color: white;
+  box-shadow: 0 0 18px rgba(255,105,180,.8);
+  animation: pulse 0.8s infinite alternate;
+  }
+
+@keyframes pulse {
+  from { transform: scale(1); }
+  to   { transform: scale(1.08); }
+}
+  .hand-title,
+  .cpu-title {
+    white-space: nowrap;
+  }
+  /* ===== CPU勝利ブリンク ===== */
+@keyframes winBlink {
+  0%   { background-color: rgba(255,165,0,0); }
+  50%  { background-color: rgba(255,165,0,0.55); }
+  100% { background-color: rgba(255,165,0,0); }
+}
+.cpu-box.win-blink {
+  animation: winBlink 0.6s ease-in-out 2;  /* 2回点滅 */
+}
+
+/* 場札・山札は、画像読込完了までは見せない */
+#field-card,
+#deck-card {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.08s ease;
+}
+
+#field-card.ready,
+#deck-card.ready {
+  visibility: visible;
+  opacity: 1;
+}
+/* ローディングオーバーレイ */
+#loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+#loading-overlay.hidden {
+  display: none;
+}
+
+.loading-inner {
+  text-align: center;
+}
+
+.loading-cards {
+  position: relative;
+  width: 260px;
+  height: 150px;
+  margin: 0 auto 16px auto;
+}
+
+.loading-card {
+  position: absolute;
+  width: 90px;
+  height: auto;
+  top: 0;
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  border-radius: 8px;
+}
+
+.loading-card.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.loading-text {
+  font-size: 22px;
+  font-weight: 700;
+  color: #333;
+}
+
+  </style>
+</head>
+
+<body>
+  <h1>DOBON（Ver.1.0）</h1>
+
+  <div id="loading-overlay">
+    <div class="loading-inner">
+      <div id="loading-cards" class="loading-cards"></div>
+      <div class="loading-text">準備中・・・</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- 左：CPU -->
+    <div>
+      <div class="cpu-box" id="cpuA-box">
+        <div class="cpu-title" id="cpuA-title">プレーヤーA（0枚）</div>
+        <div class="mini-row" id="cpuA-cards"></div>
+      </div>
+      <div class="cpu-box" id="cpuB-box">
+        <div class="cpu-title" id="cpuB-title">プレーヤーB（0枚）</div>
+        <div class="mini-row" id="cpuB-cards"></div>
+      </div>
+      <div class="cpu-box" id="cpuC-box">
+        <div class="cpu-title" id="cpuC-title">プレーヤーC（0枚）</div>
+        <div class="mini-row" id="cpuC-cards"></div>
+      </div>
+    </div>
+
+    <!-- 中央：場 -->
+    <div class="center">
+      <div class="label">場のカード</div>
+      <div class="field-frame">
+        <img id="field-card" src="" alt="field" onload="this.classList.add('ready')">
+      </div>
+    </div>
+
+    <!-- 右：山 -->
+    <div class="right">
+      <div class="label" id="deck-title">山のカード（0枚）</div>
+      <div class="deck-wrap">
+        <img id="deck-card" class="deck-card" src="" alt="deck" onload="this.classList.add('ready')">
+      </div>
+
+      <div class="toolbar">
+        <button py-click="reset_game">配り直し</button>
+        <button id="dobon-btn" py-click="try_dobon">ドボン！</button>
+      </div>
+      <div id="msg"></div>
+    </div>
+  </div>
+
+  <!-- 下：あなた -->
+  <div class="hand-area" id="you-box">
+    <div class="hand-title" id="you-title">あなた（0枚）</div>
+    <div id="your-hand" class="hand-frame"></div>
+  </div>
+  <!-- VERSION: 1.0 -->
+  <script type="py" src="main.py?v=1.0"></script>
+  <script type="py" src="cpu.py?v=1.0"></script>
+</body>
+</html>
