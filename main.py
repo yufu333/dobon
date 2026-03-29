@@ -375,7 +375,7 @@ async def reset_async():
     global reveal_cpu
     
     # ブリンク解除
-    for box in ["cpuA-box","cpuB-box","cpuC-box"]:
+    for box in ["cpuA-box","cpuB-box","cpuC-box","you-box"]:
         el = document.getElementById(box)
         if el:
             el.classList.remove("win-blink")
@@ -583,7 +583,7 @@ def hand_sum(cards):
     return sum(card_to_suit_rank(cid)[1] for cid in cards)
 
 async def try_dobon_async():
-    global busy, game_over, dobon_waiting, last_actor,last_winner
+    global busy, dobon_waiting, last_actor
 
     if busy:
         return
@@ -603,7 +603,7 @@ async def try_dobon_async():
                 ng=True
             )
 
-            # ★CPU停止中なら再開
+            # CPU停止中なら再開
             if dobon_waiting:
                 dobon_waiting = False
                 set_dobon_alert(False)
@@ -624,25 +624,10 @@ async def try_dobon_async():
                 asyncio.create_task(run_cpu_turns_until_you())
             return
 
-        # ===== 勝利 =====
+        # ===== 勝利（you）=====
         loser = last_actor if last_actor is not None else "（不明）"
-        last_winner = "you"
-        
-        set_msg(
-            "ドボン！ あなたの勝ち！\n"
-            f"手札：{total} = 場：{target}  負け：{loser}",
-            ok=True
-        )
-        win_stats["you"]["win"] += 1
-        for p in win_stats:
-            win_stats[p]["total"] += 1
-
-        dobon_waiting = False
-        set_dobon_alert(False)
-        game_over = True
-
-        deck_img.classList.add("disabled")
-        dobon_btn.disabled = True
+        end_game_by_dobon("you", loser)
+        return
 
     finally:
         busy = False
@@ -887,16 +872,22 @@ def end_game_by_dobon(winner: str, loser: str):
         win_stats[p]["total"] += 1
 
     # ===== 勝者ブリンク演出 =====
-    for box in ["cpuA-box","cpuB-box","cpuC-box"]:
+    for box in ["cpuA-box","cpuB-box","cpuC-box","you-box"]:
         el = document.getElementById(box)
-    if el:
-        el.classList.remove("win-blink")
+        if el:
+            el.classList.remove("win-blink")
 
-    if winner in ("cpuA","cpuB","cpuC"):
-        box_id = f"{winner}-box"
-        el = document.getElementById(box_id)
-    if el:
-        el.classList.add("win-blink")
+    win_box = {
+        "cpuA": "cpuA-box",
+        "cpuB": "cpuB-box",
+        "cpuC": "cpuC-box",
+        "you": "you-box",
+    }.get(winner)
+
+    if win_box:
+        el = document.getElementById(win_box)
+        if el:
+            el.classList.add("win-blink")
 
     render_all()
 
