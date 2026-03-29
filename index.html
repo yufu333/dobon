@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
-  <title>カードゲーム「DOBON」 Ver.1.0"></title>
+  <title>カードゲーム「DOBON」 Ver.1.1a"></title>
 
   <!-- PyScript（固定版） -->
   <link rel="stylesheet" href="https://pyscript.net/releases/2026.3.1/core.css">
@@ -272,6 +272,10 @@
 .cpu-box.win-blink {
   animation: winBlink 0.6s ease-in-out 2;  /* 2回点滅 */
 }
+#you-box.win-blink .hand-title,
+#you-box.win-blink .hand-frame {
+  animation: winBlink 0.6s ease-in-out 2;
+}
 
 /* 場札・山札は、画像読込完了までは見せない */
 #field-card,
@@ -338,7 +342,7 @@
 </head>
 
 <body>
-  <h1>DOBON（Ver.1.0）</h1>
+  <h1>DOBON（Ver.1.1a）</h1>
 
   <div id="loading-overlay">
     <div class="loading-inner">
@@ -380,7 +384,7 @@
       </div>
 
       <div class="toolbar">
-        <button py-click="reset_game">配り直し</button>
+        <button py-click="reset_game">新しいゲーム</button>
         <button id="dobon-btn" py-click="try_dobon">ドボン！</button>
       </div>
       <div id="msg"></div>
@@ -392,8 +396,8 @@
     <div class="hand-title" id="you-title">あなた（0枚）</div>
     <div id="your-hand" class="hand-frame"></div>
   </div>
-  <!-- VERSION: 1.0 -->
-  <script type="py" src="main.py?v=1.0"></script>
-  <script type="py" src="cpu.py?v=1.0"></script>
+  <!-- VERSION: 1.1a -->
+  <script type="py" src="main.py?v=1.1a"></script>
+  <script type="py" src="cpu.py?v=1.1a"></script>
 </body>
 </html>
